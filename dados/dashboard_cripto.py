@@ -282,9 +282,14 @@ with aba2:
 
     with col_status:
         if status.get("ativo"):
-            st.success("🟢 Monitor AUTOMÁTICO está ATIVO")
-            if status.get("ultima_execucao"):
-                st.caption(f"Última verificação: {status['ultima_execucao']}")
+            st.success("🟢 Monitor AUTOMÁTICO está ATIVO (Verificação a cada 10 minutos)")
+            
+            # Exibe o status da última execução vindo do cache ou do arquivo json
+            ultima_exec = resultado_monitor.get("agora") if isinstance(resultado_monitor, dict) and resultado_monitor.get("agora") else status.get("ultima_execucao")
+            if ultima_exec:
+                st.info(f"⏱️ **Última verificação efetuada:** {ultima_exec}")
+            else:
+                st.caption("Aguardando primeira verificação...")
         else:
             st.warning("🔴 Monitor AUTOMÁTICO está DESATIVADO")
 
