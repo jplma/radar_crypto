@@ -4,7 +4,7 @@ import pandas as pd
 import plotly.express as px
 import os
 import glob
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 
 # Tenta importar os módulos auxiliares do projeto
 try:
@@ -52,7 +52,9 @@ def executar_monitor_automatico():
 
     # Verifica se o monitor está ATIVO no painel
     if status.get("ativo", False):
-        agora = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+        # Ajusta para o fuso horário UTC-3 (Horário Oficial de Brasília)
+        fuso_br = timezone(timedelta(hours=-3))
+        agora = datetime.now(fuso_br).strftime("%d/%m/%Y %H:%M:%S")
         try:
             # Executa a verificação e o envio de e-mails
             retorno = gc.gerar_e_enviar_alertas()
