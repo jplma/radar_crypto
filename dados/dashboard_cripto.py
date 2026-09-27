@@ -271,7 +271,7 @@ with aba2:
 
             opcoes = []
             for i, r in enumerate(resultados_busca):
-                texto = f"{r['simbolo']} | {r['rede']} | Preço: ${r['preco']:.8f} \vert{} Liq:${r['liquidez']:,.0f}"
+                texto = f"{r['simbolo']} - {r['rede']} - Preço: ${r['preco']:.8f} - Liq:${r['liquidez']:,.0f}"
                 opcoes.append(texto)
 
             escolha = st.radio("Resultados encontrados:", opcoes, key="escolha_token")
