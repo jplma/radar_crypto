@@ -6,6 +6,7 @@ import os
 import glob
 from datetime import datetime
 
+# Tenta importar os módulos auxiliares do projeto
 try:
     import gestao_carteira as gc
     GESTAO_OK = True
@@ -13,7 +14,16 @@ except Exception as e:
     GESTAO_OK = False
     ERRO_GESTAO = str(e)
 
-PASTA_CSV = PASTA = os.path.join(os.path.dirname(__file__), "dados")
+try:
+    import codigo_relatorio_cripto_potencial as relatorio
+    RELATORIO_OK = True
+except Exception as e:
+    RELATORIO_OK = False
+    ERRO_RELATORIO = str(e)
+
+# Define o caminho da pasta 'dados' de forma relativa e dinâmica
+DIRETORIO_BASE = os.path.dirname(os.path.abspath(__file__)) if '__file__' in globals() else os.getcwd()
+PASTA_CSV = os.path.join(DIRETORIO_BASE, "dados")
 
 st.set_page_config(page_title="Crypto Radar | Low-Cap + Carteira", page_icon="◈", layout="wide")
 
@@ -41,6 +51,8 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 def encontrar_csv_mais_recente(pasta):
+    if not os.path.exists(pasta):
+        return None
     arquivos = glob.glob(os.path.join(pasta, "ranking_potencial_*.csv"))
     if not arquivos:
         return None
@@ -64,11 +76,29 @@ aba1, aba2 = st.tabs(["📡 Radar de Oportunidades", "💼 Gestão de Carteira"]
 # ABA 1 – RADAR
 # =========================================================
 with aba1:
+    # Botão para executar a análise diretamente na plataforma Web
+    col_titulo, col_btn_analise = st.columns([3, 1])
+    with col_titulo:
+        st.title("Crypto Radar")
+    with col_btn_analise:
+        st.write("")
+        if st.button("🔄 Executar Nova Análise", type="primary", use_container_width=True):
+            if RELATORIO_OK:
+                with st.spinner("Analisando mercado e gerando novo relatório..."):
+                    df_novo = relatorio.buscar_e_analisar()
+                    if df_novo is not None:
+                        st.success("Análise gerada com sucesso!")
+                        st.rerun()
+                    else:
+                        st.warning("Nenhum token atendeu aos filtros da análise.")
+            else:
+                st.error(f"Erro ao carregar script de análise: {ERRO_RELATORIO}")
+
     df, caminho_arquivo = carregar_dados()
 
     if df is None:
-        st.error("Nenhum arquivo ranking_potencial_*.csv encontrado em C:\\RESULTADO")
-        st.info("Execute primeiro: python codigo_relatorio_cripto_potencial.py")
+        st.info("Nenhum relatório recente encontrado na pasta de dados.")
+        st.caption("Clique no botão **'🔄 Executar Nova Análise'** acima para gerar o primeiro relatório de oportunidades.")
     else:
         for col in ["SCORE", "Preco_USD", "Liquidez_USD", "Volume_24h", "Var_1h_%", "Var_6h_%", "MCap_USD"]:
             if col in df.columns:
@@ -81,8 +111,7 @@ with aba1:
         nome_arquivo = os.path.basename(caminho_arquivo)
         data_mod = datetime.fromtimestamp(os.path.getmtime(caminho_arquivo)).strftime("%d/%m/%Y %H:%M")
 
-        st.title("Crypto Radar")
-        st.caption(f"Arquivo: `{nome_arquivo}`  •  Atualizado em {data_mod}")
+        st.caption(f"Arquivo ativo: `{nome_arquivo}`  •  Atualizado em {data_mod}")
 
         ocultar_risco = st.toggle("Ocultar tokens de RISCO", value=True, key="filtro_risco")
 
@@ -188,7 +217,7 @@ with aba2:
 
     if not GESTAO_OK:
         st.error(f"Erro ao carregar gestao_carteira.py: {ERRO_GESTAO}")
-        st.info("Verifique se o arquivo gestao_carteira.py está na mesma pasta (C:\\RESULTADO)")
+        st.info("Verifique se o arquivo gestao_carteira.py está no mesmo repositório do projeto.")
         st.stop()
 
     # ----- Controle do Monitor Automático -----
@@ -242,7 +271,7 @@ with aba2:
 
             opcoes = []
             for i, r in enumerate(resultados_busca):
-                texto = f"{r['simbolo']} | {r['rede']} | Preço: ${r['preco']:.8f} | Liq: ${r['liquidez']:,.0f}"
+                texto = f"{r['simbolo']} | {r['rede']} | Preço: ${r['preco']:.8f} \vert{} Liq:${r['liquidez']:,.0f}"
                 opcoes.append(texto)
 
             escolha = st.radio("Resultados encontrados:", opcoes, key="escolha_token")
