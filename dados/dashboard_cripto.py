@@ -27,6 +27,60 @@ PASTA_CSV = os.path.join(DIRETORIO_BASE, "dados")
 
 st.set_page_config(page_title="Crypto Radar | Low-Cap + Carteira", page_icon="◈", layout="wide")
 
+# =========================================================
+# 1. AUTOMAÇÃO E MONITORAMENTO EM SEGUNDO PLANO (10 MINUTOS)
+# =========================================================
+# Atualiza a página do navegador automaticamente a cada 10 minutos (600.000 ms)
+st.html(
+    """
+    <script>
+        setTimeout(function(){
+            window.location.reload();
+        }, 600000);
+    </script>
+    """
+)
+
+# Cache de 10 minutos (ttl=600). Garante que a verificação de alertas e o envio de e-mails
+# rodem de forma autônoma na nuvem do Streamlit sem requisições duplicadas.
+@st.cache_data(ttl=600)
+def executar_monitor_automatico():
+    if not GESTAO_OK:
+        return {"sucesso": False, "erro": "Módulo gestao_carteira indisponível."}
+
+    status = gc.carregar_status()
+
+    # Verifica se o monitor está ATIVO no painel
+    if status.get("ativo", False):
+        agora = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+        try:
+            # Executa a verificação e o envio de e-mails
+            retorno = gc.gerar_e_enviar_alertas()
+            
+            # Atualiza e guarda a hora da última execução
+            status["ultima_execucao"] = agora
+            gc.salvar_status(status)
+            
+            return {
+                "sucesso": True,
+                "agora": agora,
+                "alertas": [
+                    r for r in retorno.get("resultados", [])
+                    if isinstance(r, dict) and r.get("ok") and r.get("alerta") in ("VENDER", "RECOMPRAR")
+                ],
+                "email_status": retorno.get("email_status", {})
+            }
+        except Exception as e:
+            return {"sucesso": False, "erro": str(e)}
+    
+    return {"sucesso": True, "ativo": False}
+
+# Executa o ciclo de verificação a cada 10 minutos
+resultado_monitor = executar_monitor_automatico()
+
+# =========================================================
+# ESTILOS CSS PERSONALIZADOS
+# =========================================================
 st.markdown("""
 <style>
     .stApp { background-color: #f8fafc; color: #0f172a; }
@@ -73,10 +127,9 @@ def classificar(score):
 aba1, aba2 = st.tabs(["📡 Radar de Oportunidades", "💼 Gestão de Carteira"])
 
 # =========================================================
-# ABA 1 – RADAR
+# ABA 1 – RADAR DE OPORTUNIDADES
 # =========================================================
 with aba1:
-    # Botão para executar a análise diretamente na plataforma Web
     col_titulo, col_btn_analise = st.columns([3, 1])
     with col_titulo:
         st.title("Crypto Radar")
@@ -239,10 +292,12 @@ with aba2:
         if status.get("ativo"):
             if st.button("Desativar Monitor", type="secondary"):
                 gc.salvar_status({"ativo": False, "ultima_execucao": status.get("ultima_execucao")})
+                st.cache_data.clear()
                 st.rerun()
         else:
             if st.button("Ativar Monitor", type="primary"):
                 gc.salvar_status({"ativo": True, "ultima_execucao": status.get("ultima_execucao")})
+                st.cache_data.clear()
                 st.rerun()
 
     st.divider()
@@ -312,6 +367,7 @@ with aba2:
                     st.success(f"Posição {token_escolhido['simbolo']} cadastrada com sucesso!")
                     if "resultados_busca" in st.session_state:
                         del st.session_state["resultados_busca"]
+                    st.cache_data.clear()
                     st.rerun()
 
         elif botao_buscar and nome_busca.strip():
@@ -325,6 +381,7 @@ with aba2:
             retorno = gc.gerar_e_enviar_alertas()
             st.session_state["ultima_analise"] = retorno["resultados"]
             st.session_state["email_status"] = retorno["email_status"]
+            st.cache_data.clear()
         st.rerun()
 
     email_status = st.session_state.get("email_status")
@@ -379,6 +436,7 @@ with aba2:
 
                 if st.button(f"Remover {pos['simbolo']}", key=f"del_{pos['id']}"):
                     gc.remover_posicao(pos["id"])
+                    st.cache_data.clear()
                     st.rerun()
 
                 st.divider()
@@ -394,9 +452,11 @@ with aba2:
                 emails.append(novo_email)
                 gc.salvar_emails(emails)
                 st.success("E-mail adicionado!")
+                st.cache_data.clear()
                 st.rerun()
 
         if st.button("Remover último e-mail") and len(emails) > 1:
             emails.pop()
             gc.salvar_emails(emails)
+            st.cache_data.clear()
             st.rerun()
