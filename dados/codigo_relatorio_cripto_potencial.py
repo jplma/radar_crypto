@@ -7,7 +7,10 @@ from datetime import datetime, timezone
 from typing import Dict, Any, List, Optional
 
 # ================= CONFIGURAÇÕES =================
-PASTA_RESULTADO = os.path.join(os.path.dirname(__file__), "dados")
+# Define a pasta 'dados' de forma relativa ao projeto para rodar no GitHub/Streamlit Cloud
+DIRETORIO_BASE = os.path.dirname(os.path.abspath(__file__)) if '__file__' in globals() else os.getcwd()
+PASTA_RESULTADO = os.path.join(DIRETORIO_BASE, "dados")
+
 MAX_TOKENS_ANALISAR = 30
 SLEEP_ENTRE_REQUESTS = 1.1
 
